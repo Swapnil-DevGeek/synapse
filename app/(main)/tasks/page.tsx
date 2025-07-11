@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ interface Task {
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
 export default function TasksPage() {
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -44,6 +46,36 @@ export default function TasksPage() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [isCreateSheetOpen, setIsCreateSheetOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    const taskId = searchParams.get('taskId');
+    
+    if (filterParam) {
+      // Handle different filter formats from dashboard
+      if (filterParam === 'priority:High') {
+        setPriorityFilter('High');
+      } else if (filterParam === 'deadline:week') {
+        // Sort by due date for deadline view
+        setSortBy('dueDate');
+        setSortOrder('asc');
+        setStatusFilter('To Do'); // Show only incomplete tasks
+      } else if (filterParam === 'completed') {
+        setStatusFilter('Done');
+        setSortBy('updatedAt');
+        setSortOrder('desc');
+      }
+    }
+    
+    // If taskId is provided, we could highlight or scroll to that task
+    // For now, we'll just clear the URL parameter
+    if (taskId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('taskId');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [searchParams]);
 
   // Build query parameters
   const queryParams = new URLSearchParams();

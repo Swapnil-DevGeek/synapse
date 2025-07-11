@@ -15,14 +15,28 @@ const NoteSchema = new Schema({
     type: String,
     default: '',
   },
-  folder: { // Simple string for folder name
+  folder: { 
     type: String,
-    default: null, // null represents the root directory
+    default: null, 
     index: true,
   },
   backlinks: [{ // An array of Note IDs that link to this note
     type: Schema.Types.ObjectId,
     ref: 'Note',
+  }],
+  aiConversations: [{ 
+    question: {
+      type: String,
+      required: true,
+    },
+    answer: {
+      type: String,
+      required: true,
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now,
+    },
   }],
   createdAt: {
     type: Date,

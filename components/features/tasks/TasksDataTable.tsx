@@ -294,7 +294,7 @@ export function TasksDataTable({ tasks, onEditTask, onTaskUpdated }: TasksDataTa
               return (
                 <TableRow 
                   key={`${task._id}-${task.status}-${task.subtasks?.filter(st => st.isCompleted).length}`} 
-                  className={`group transition-all duration-300 hover:bg-muted/50 animate-in fade-in duration-200 ${
+                  className={`group transition-all duration-300 hover:bg-muted/50 animate-in fade-in ${
                     task.status === 'Done' ? 'bg-green-50/50 dark:bg-green-900/10' : ''
                   }`}
                 >
