@@ -279,6 +279,7 @@ export function TasksDataTable({ tasks, onEditTask, onTaskUpdated }: TasksDataTa
           <TableHeader>
             <TableRow>
               <TableHead>Task</TableHead>
+              <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Priority</TableHead>
               <TableHead>Progress</TableHead>
@@ -307,11 +308,6 @@ export function TasksDataTable({ tasks, onEditTask, onTaskUpdated }: TasksDataTa
                           </span>
                         )}
                       </div>
-                      {task.description && (
-                        <div className="text-sm text-muted-foreground line-clamp-2">
-                          {task.description}
-                        </div>
-                      )}
                       {task.subtasks && task.subtasks.length > 0 && (
                         <div className="space-y-1">
                           <button
@@ -366,6 +362,15 @@ export function TasksDataTable({ tasks, onEditTask, onTaskUpdated }: TasksDataTa
                             </div>
                           )}
                         </div>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm text-muted-foreground max-w-xs">
+                      {task.description ? (
+                        <span className="line-clamp-2">{task.description}</span>
+                      ) : (
+                        <span className="italic">No description</span>
                       )}
                     </div>
                   </TableCell>
@@ -462,7 +467,7 @@ export function TasksDataTable({ tasks, onEditTask, onTaskUpdated }: TasksDataTa
                           onClick={() => setDeleteTaskId(task._id)}
                           className="gap-2 text-red-600 focus:text-red-600"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-red-600 focus:text-red-600" />
                           Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
