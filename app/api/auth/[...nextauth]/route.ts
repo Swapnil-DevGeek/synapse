@@ -10,7 +10,7 @@ import User from "@/models/User";
 // MongoDB client for NextAuth adapter
 const client = new MongoClient(process.env.MONGODB_URI!);
 
-const handler = NextAuth({
+export const authOptions = {
   adapter: MongoDBAdapter(client),
   providers: [
     // Google OAuth Provider
@@ -85,11 +85,11 @@ const handler = NextAuth({
   ],
   
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
   
   callbacks: {
-    async jwt({ token, user, account, profile }) {
+    async jwt({ token, user, account, profile }: any) {
       // Include user ID in token
       if (user) {
         token.userId = user.id;
@@ -119,7 +119,7 @@ const handler = NextAuth({
       return token;
     },
     
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       // Include user ID in session
       if (token.userId) {
         session.user.id = token.userId;
@@ -127,7 +127,7 @@ const handler = NextAuth({
       return session;
     },
     
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account, profile }: any) {
       // Allow all sign ins
       return true;
     },
@@ -135,10 +135,12 @@ const handler = NextAuth({
   
   pages: {
     signIn: "/login",
-    signUp: "/signup",
   },
   
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
+
+// @ts-ignore - NextAuth adapter compatibility issue with version differences
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST }; 

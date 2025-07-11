@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -30,6 +31,12 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             {children}
+            <Toaster 
+              position="bottom-right"
+              richColors
+              closeButton
+              theme="light"
+            />
           </ThemeProvider>
         </SessionProvider>
       </body>

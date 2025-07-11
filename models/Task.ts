@@ -52,12 +52,22 @@ const TaskSchema = new Schema({
   },
 });
 
-// Middleware to update the parent task status when all subtasks are complete
+// Middleware to update the parent task status based on subtask completion
 TaskSchema.pre('save', function (next) {
-  if (this.isModified('subtasks')) {
+  if (this.isModified('subtasks') && this.subtasks.length > 0) {
     const allCompleted = this.subtasks.every(subtask => subtask.isCompleted);
-    if (this.subtasks.length > 0 && allCompleted) {
+    const anyCompleted = this.subtasks.some(subtask => subtask.isCompleted);
+    
+    // Auto-transition task status based on subtask completion
+    if (allCompleted && this.status !== 'Done') {
+      // All subtasks completed -> mark task as Done
       this.status = 'Done';
+    } else if (!allCompleted && this.status === 'Done') {
+      // Not all subtasks completed but task was Done -> move back to In Progress
+      this.status = 'In Progress';
+    } else if (anyCompleted && this.status === 'To Do') {
+      // Some subtasks completed and task is still To Do -> move to In Progress
+      this.status = 'In Progress';
     }
   }
   this.updatedAt = new Date();
