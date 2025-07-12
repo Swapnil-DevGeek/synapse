@@ -149,17 +149,26 @@ export function FileTree({
 
     const { type, path } = creatingData;
 
-    if (type === 'folder') {
-        const newFolderPath = path ? `${path}/${newName}` : newName;
+    try {
+      if (type === 'folder') {
+        const newFolderPath = path ? `${path}/${newName.trim()}` : newName.trim();
+        // Create a placeholder note in the new folder to ensure it exists
         await onCreateNote('Untitled', newFolderPath);
         setExpandedFolders(prev => new Set(prev).add(path).add(newFolderPath));
-    } else {
-        await onCreateNote(newName, path);
+        toast.success('Folder created');
+      } else {
+        await onCreateNote(newName.trim(), path || undefined);
+        toast.success('Note created');
+      }
+      
+      onRefreshNotes?.();
+    } catch (error) {
+      console.error('Error creating item:', error);
+      toast.error(`Failed to create ${type}`);
+    } finally {
+      setCreatingData(null);
+      setNewName('');
     }
-    
-    onRefreshNotes?.();
-    setCreatingData(null);
-    setNewName('');
   }, [creatingData, newName, onCreateNote, onRefreshNotes]);
 
   const handleRename = useCallback(async () => {
@@ -240,7 +249,7 @@ export function FileTree({
   }, [onMoveNote, onRefreshNotes]);
 
   const renderItemCreation = useCallback((path: string, type: 'note' | 'folder') => (
-    <div className="py-1 flex items-center gap-2" style={{ marginLeft: `${(path.split('/').length - 1) * 1.25}rem` }}>
+    <div className="py-1 flex items-center gap-2" style={{ marginLeft: `${path.split('/').filter(Boolean).length * 1.25}rem` }}>
       <Input
         autoFocus
         value={newName}
@@ -248,7 +257,7 @@ export function FileTree({
         onChange={(e) => setNewName(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
-            if (type === 'folder') {
+            if (editingItem) {
               handleRename();
             } else {
               handleCreate();
@@ -266,12 +275,12 @@ export function FileTree({
         size="sm" 
         variant="ghost" 
         className="h-7" 
-        onClick={type === 'folder' ? handleRename : handleCreate}
+        onClick={editingItem ? handleRename : handleCreate}
       >
         Save
       </Button>
     </div>
-  ), [newName, setNewName, handleRename, handleCreate]);
+  ), [newName, editingItem, handleRename, handleCreate]);
 
   const toggleFolder = useCallback((path: string) => {
     setExpandedFolders(prev => {
@@ -384,11 +393,6 @@ export function FileTree({
     nodes.map(node => (
       <div key={node.id}>
         {renderNode(node)}
-        {creatingData?.path === node.path && (
-          <div className="mt-1">
-            {renderItemCreation(node.path, creatingData.type)}
-          </div>
-        )}
         {node.type === 'folder' && expandedFolders.has(node.path) && (
           <Droppable droppableId={node.path} type="ITEM">
             {(provided) => (
@@ -398,6 +402,12 @@ export function FileTree({
                 className="pl-4 border-l border-border/50 ml-2"
               >
                 {renderTree(node.children)}
+                {/* Only show creation input if this is the specific folder being created in */}
+                {creatingData?.path === node.path && (
+                  <div className="mt-1">
+                    {renderItemCreation(node.path, creatingData.type)}
+                  </div>
+                )}
                 {provided.placeholder}
               </div>
             )}
@@ -430,7 +440,8 @@ export function FileTree({
               <div ref={provided.innerRef} {...provided.droppableProps} className="p-1">
                 {renderTree(fileTree)}
                 {provided.placeholder}
-                {creatingData && !creatingData.path && (
+                {/* Only show creation input at root level if creating at root */}
+                {creatingData?.path === '' && (
                   <div className="mt-1">
                     {renderItemCreation('', creatingData.type)}
                   </div>

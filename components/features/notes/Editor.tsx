@@ -31,10 +31,13 @@ import {
   Save,
   Bot,
   ImageIcon,
-  FileText
+  FileText,
+  GitBranch
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SummaryDisplay } from './SummaryDisplay';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Command, CommandInput, CommandList, CommandItem, CommandEmpty, CommandGroup } from '@/components/ui/command';
 
 // Types
 interface Note {
@@ -66,6 +69,7 @@ export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onNoteSelect }
   const [showSummary, setShowSummary] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUpdatingFromPropRef = useRef(false);
+  const [isBacklinkDialogOpen, setIsBacklinkDialogOpen] = useState(false);
 
   // Debounced values for auto-save (1 second delay)
   const [debouncedTitle] = useDebounce(title, 1000);
@@ -518,6 +522,13 @@ export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onNoteSelect }
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => setIsBacklinkDialogOpen(true)}
+              >
+                <GitBranch className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => editor.chain().focus().undo().run()}
                 disabled={!editor.can().undo()}
                 title="Undo"
@@ -595,6 +606,35 @@ export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onNoteSelect }
           </div>
         </ScrollArea>
       </div>
+      <Dialog open={isBacklinkDialogOpen} onOpenChange={setIsBacklinkDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Insert Backlink</DialogTitle>
+          </DialogHeader>
+          <Command>
+            <CommandInput placeholder="Search notes..." />
+            <CommandList>
+              <CommandEmpty>No notes found.</CommandEmpty>
+              <CommandGroup>
+                {notes.filter(n => n._id !== note._id).map(n => (
+                  <CommandItem 
+                    key={n._id} 
+                    onSelect={() => {
+                      editor.chain().focus().insertContent({
+                        type: 'backlink',
+                        attrs: { id: n._id, label: n.title }
+                      }).run();
+                      setIsBacklinkDialogOpen(false);
+                    }}
+                  >
+                    {n.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 } 
