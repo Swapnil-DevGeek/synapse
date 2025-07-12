@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   ResizablePanelGroup, 
   ResizablePanel, 
@@ -12,6 +12,7 @@ import { Editor } from '@/components/features/notes/Editor';
 import { AIChatPanel } from '@/components/features/notes/AIChatPanel';
 import { Button } from '@/components/ui/button';
 import { PanelLeftClose, PanelRightClose, FileText } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
 
 // Types
 interface Note {
@@ -27,8 +28,40 @@ interface Note {
   updatedAt: string;
 }
 
-export default function NotesPage() {
+// --- Suspense-wrapped SearchParams for CSR-only hooks ---
+function SearchParamsHandler(props: {
+  isLoading: boolean;
+  selectedNote: Note | null;
+  createNote: (title: string, folder?: string) => Promise<Note>;
+  fetchAndSetNote: (noteId: string) => Promise<void>;
+}) {
+  // useSearchParams must be inside Suspense boundary
+  const { isLoading, selectedNote, createNote, fetchAndSetNote } = props;
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    const noteId = searchParams.get('noteId');
+    
+    if (action === 'new' && !isLoading) {
+      // Create a new note when action=new is in URL, but only once
+      createNote('Untitled Note');
+      // Clear the action parameter to prevent infinite loop
+      const url = new URL(window.location.href);
+      url.searchParams.delete('action');
+      window.history.replaceState({}, '', url.toString());
+    } else if (noteId && !isLoading) {
+      // Load specific note if noteId is provided and it's not already loaded
+      if (!selectedNote || selectedNote._id !== noteId) {
+        fetchAndSetNote(noteId);
+      }
+    }
+  }, [searchParams, isLoading, selectedNote, createNote, fetchAndSetNote]);
+
+  return null;
+}
+
+export default function NotesPage() {
   const router = useRouter();
   const [allNotes, setAllNotes] = useState<Note[]>([]);
   const [treeNotes, setTreeNotes] = useState<Note[]>([]);
@@ -53,60 +86,8 @@ export default function NotesPage() {
     }
   }, []);
 
-  // Filter notes for the file tree based on the selected folder
-  useEffect(() => {
-    if (selectedFolder === null) {
-      setTreeNotes(allNotes); // Show all notes
-    } else {
-      setTreeNotes(allNotes.filter(note => note.folder === selectedFolder));
-    }
-  }, [selectedFolder, allNotes]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchAllNotes();
-  }, [fetchAllNotes]);
-
-  // Handle URL actions - only run once when component mounts and search params change
-  useEffect(() => {
-    const action = searchParams.get('action');
-    const noteId = searchParams.get('noteId');
-    
-    if (action === 'new' && !isLoading) {
-      // Create a new note when action=new is in URL, but only once
-      createNote('Untitled Note');
-      // Clear the action parameter to prevent infinite loop
-      const url = new URL(window.location.href);
-      url.searchParams.delete('action');
-      window.history.replaceState({}, '', url.toString());
-    } else if (noteId && !isLoading) {
-      if (selectedNote?._id !== noteId) {
-        // Load specific note if noteId is provided
-        fetchAndSetNote(noteId);
-      }
-    }
-  }, [searchParams, isLoading, selectedNote?._id]);
-
-  // Fetch individual note with backlinks
-  const fetchAndSetNote = async (noteId: string) => {
-    try {
-      const response = await fetch(`/api/notes/${noteId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setSelectedNote(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching note:', error);
-    }
-  };
-
-  const handleNoteSelect = (noteId: string) => {
-    router.push(`/notes?noteId=${noteId}`, { scroll: false });
-  };
-
   // Generate unique note title
-  const generateUniqueTitle = (baseTitle: string, folder?: string): string => {
+  const generateUniqueTitle = useCallback((baseTitle: string, folder?: string): string => {
     const existingTitles = allNotes
       .filter(note => folder ? note.folder === folder : !note.folder)
       .map(note => note.title);
@@ -121,10 +102,10 @@ export default function NotesPage() {
     }
     
     return `${baseTitle} ${counter}`;
-  };
+  }, [allNotes]);
 
   // Create new note
-  const createNote = async (title: string, folder?: string) => {
+  const createNote = useCallback(async (title: string, folder?: string) => {
     try {
       const uniqueTitle = generateUniqueTitle(title, folder);
       
@@ -149,6 +130,58 @@ export default function NotesPage() {
     } catch (error) {
       console.error('Error creating note:', error);
     }
+  }, [fetchAllNotes, generateUniqueTitle]);
+
+  // Fetch individual note with backlinks
+  const fetchAndSetNote = useCallback(async (noteId: string) => {
+    try {
+      setIsLoading(true); // Set loading state while fetching specific note
+      const response = await fetch(`/api/notes/${noteId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setSelectedNote(data.data);
+        // Also fetch all notes to populate the sidebar
+        await fetchAllNotes();
+      }
+    } catch (error) {
+      console.error('Error fetching note:', error);
+    } finally {
+      setIsLoading(false); // Clear loading state after fetching
+    }
+  }, [fetchAllNotes]);
+
+  // Filter notes for the file tree based on the selected folder
+  useEffect(() => {
+    if (selectedFolder === null) {
+      setTreeNotes(allNotes); // Show all notes
+    } else {
+      setTreeNotes(allNotes.filter(note => note.folder === selectedFolder));
+    }
+  }, [selectedFolder, allNotes]);
+
+  // Initial fetch - check URL params first
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const noteId = urlParams.get('noteId');
+    
+    if (noteId) {
+      // If there's a noteId in URL, fetch that specific note first
+      fetchAndSetNote(noteId);
+    } else {
+      // Otherwise, just fetch all notes
+      fetchAllNotes();
+    }
+  }, [fetchAllNotes, fetchAndSetNote]);
+
+  // --- Suspense boundary for useSearchParams ---
+  // See: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+  // This fixes the error by wrapping useSearchParams in Suspense.
+  // The SearchParamsHandler will handle note creation and selection from URL.
+  // It is rendered below in the main return.
+
+  const handleNoteSelect = (noteId: string) => {
+    router.push(`/notes?noteId=${noteId}`, { scroll: false });
   };
 
   // Update note
@@ -165,7 +198,12 @@ export default function NotesPage() {
       const data = await response.json();
       if (data.success) {
         setSelectedNote(data.data);
-        await fetchAllNotes(); // Refresh all notes
+        // Update the note in allNotes array instead of refetching everything
+        setAllNotes(prevNotes => 
+          prevNotes.map(note => 
+            note._id === noteId ? data.data : note
+          )
+        );
       }
     } catch (error) {
       console.error('Error updating note:', error);
@@ -232,6 +270,15 @@ export default function NotesPage() {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Suspense boundary for useSearchParams */}
+      <Suspense fallback={null}>
+        <SearchParamsHandler
+          isLoading={isLoading}
+          selectedNote={selectedNote}
+          createNote={createNote}
+          fetchAndSetNote={fetchAndSetNote}
+        />
+      </Suspense>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-4">
@@ -293,7 +340,6 @@ export default function NotesPage() {
               notes={allNotes}
               onUpdateNote={updateNote}
               onOpenAIChat={() => setIsRightPanelCollapsed(false)}
-              onSummarizeNote={() => {}} // Handled internally by Editor component
               onNoteSelect={handleNoteSelect}
             />
           </ResizablePanel>

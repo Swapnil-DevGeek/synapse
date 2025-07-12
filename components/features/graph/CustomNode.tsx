@@ -4,7 +4,6 @@ import { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Folder, Link2 } from 'lucide-react';
-import { GraphNode } from '@/types/graph';
 
 interface CustomNodeData {
   label: string;
@@ -24,7 +23,7 @@ interface CustomNodeData {
 }
 
 export const CustomNode = memo(({ data, selected }: NodeProps<CustomNodeData>) => {
-  const { label, note, connections, size, color } = data;
+  const { label, note, connections, size } = data;
 
   // Determine node style based on connection count
   const getNodeStyle = () => {

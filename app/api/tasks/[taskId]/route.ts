@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Task from '@/models/Task';
 import mongoose from 'mongoose';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     taskId: string;
-  };
+  }>;
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { taskId } = params;
+    const { taskId } = await params;
 
     // Validate taskId format
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
@@ -85,7 +85,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { taskId } = params;
+    const { taskId } = await params;
 
     // Validate taskId format
     if (!mongoose.Types.ObjectId.isValid(taskId)) {
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const { taskId } = params;
+    const { taskId } = await params;
 
     // Validate taskId format
     if (!mongoose.Types.ObjectId.isValid(taskId)) {

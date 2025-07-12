@@ -92,9 +92,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           router.push("/dashboard");
         }
       }
-    } catch (error) {
+    } catch (_error) {
       setError("An unexpected error occurred. Please try again.");
-      console.error("Auth error:", error);
+      console.error("Auth error:", _error);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +112,8 @@ export function AuthForm({ mode }: AuthFormProps) {
         const data = await response.json();
         setError(data.error || "Failed to send OTP");
       }
-    } catch (error) {
+    } catch (err) {
+      console.error("sendOTP error:", err);
       setError("Failed to send verification email");
     }
   };
@@ -150,7 +151,8 @@ export function AuthForm({ mode }: AuthFormProps) {
         const data = await response.json();
         setError(data.error || "Invalid OTP");
       }
-    } catch (error) {
+    } catch (err) {
+      console.error("OTP verification error:", err);
       setError("Verification failed. Please try again.");
     } finally {
       setIsLoading(false);
@@ -161,7 +163,8 @@ export function AuthForm({ mode }: AuthFormProps) {
     setIsLoading(true);
     try {
       await signIn("google", { callbackUrl: "/dashboard" });
-    } catch (error) {
+    } catch (err) {
+      console.error("Google sign in error:", err);
       setError("Google sign in failed");
     } finally {
       setIsLoading(false);
@@ -177,7 +180,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           </div>
           <CardTitle className="text-2xl">Verify Your Email</CardTitle>
           <CardDescription>
-            We've sent a 6-digit code to {userEmail}
+            We&apos;ve sent a 6-digit code to {userEmail}
           </CardDescription>
         </CardHeader>
         <form onSubmit={otpForm.handleSubmit(onOTPSubmit)}>

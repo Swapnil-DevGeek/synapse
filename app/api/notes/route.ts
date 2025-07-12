@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Note from '@/models/Note';
+
+interface NoteFilter {
+  userId: string;
+  folder?: string | null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,7 +76,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
     // Build filter query
-    const filter: any = { userId: session.user.id };
+    const filter: NoteFilter = { userId: session.user.id };
     
     if (folder && folder !== 'all') {
       if (folder === 'root') {
@@ -82,7 +87,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build sort object
-    const sort: any = {};
+    const sort: { [key: string]: 1 | -1 } = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
     const notes = await Note.find(filter).sort(sort);

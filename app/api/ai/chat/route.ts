@@ -4,7 +4,7 @@ import { type Session } from 'next-auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import dbConnect from '@/lib/dbConnect';
 import Note from '@/models/Note';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
@@ -12,7 +12,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const session: Session | null = await getServerSession(authOptions as any);
+    const session: Session | null = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

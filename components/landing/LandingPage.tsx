@@ -1,11 +1,11 @@
 import { ArrowRight, Brain, FileText, BarChart3, Zap, Users, Shield, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
-import { AnimatedGradientText } from './AnimatedGradientText'
-import { ShimmerButton } from './ShimmerButton'
-import { RetroGrid } from './RetroGrid'
-import { Meteors } from './Meteors'
-import { TextReveal } from './TextReveal'
-import { NumberTicker } from './NumberTicker'
+import { AnimatedGradientText } from './AnimatedGradientText';
+import { ShimmerButton } from '../ui/shimmer-button';
+import { RetroGrid } from './RetroGrid';
+import { Meteors } from './Meteors';
+import { TextReveal } from './TextReveal';
+import { NumberTicker } from './NumberTicker';
 
 export function LandingPage() {
   return (
@@ -36,7 +36,7 @@ export function LandingPage() {
                 Sign In
               </Link>
               <Link href="/signup">
-                <ShimmerButton>Get Started</ShimmerButton>
+                <ShimmerButton className="dark:text-muted-foreground dark:hover:text-foreground dark:transition-colors">Get Started</ShimmerButton>
               </Link>
             </div>
           </div>
@@ -66,7 +66,7 @@ export function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link href="/signup">
-                <ShimmerButton className="text-lg px-8 py-3">
+                <ShimmerButton className="text-lg px-8 py-3 dark:text-muted-foreground dark:hover:text-foreground dark:transition-colors">
                   Start Building Your Brain
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </ShimmerButton>
@@ -161,7 +161,7 @@ export function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link href="/signup">
-              <ShimmerButton className="text-lg px-8 py-3">
+              <ShimmerButton className="text-lg px-8 py-3 dark:text-muted-foreground dark:hover:text-foreground dark:transition-colors">
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5" />
               </ShimmerButton>

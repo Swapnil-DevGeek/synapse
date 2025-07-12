@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,8 @@ interface Task {
 // Fetcher function for SWR
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
-export default function TasksPage() {
+// Separate component that uses useSearchParams
+function TasksContent() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -231,4 +232,45 @@ export default function TasksPage() {
       />
     </div>
   );
-} 
+}
+
+// Loading component for Suspense fallback
+function TasksPageSkeleton() {
+  return (
+    <div className="flex-1 space-y-6 p-6">
+      {/* Page Header Skeleton */}
+      <div className="flex items-center justify-between">
+        <div>
+          <Skeleton className="h-9 w-24 mb-2" />
+          <Skeleton className="h-5 w-64" />
+        </div>
+        <Skeleton className="h-10 w-28" />
+      </div>
+
+      {/* Filter Bar Skeleton */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
+        <Skeleton className="h-10 flex-1" />
+        <Skeleton className="h-10 w-full md:w-[180px]" />
+        <Skeleton className="h-10 w-full md:w-[180px]" />
+        <Skeleton className="h-10 w-full md:w-[180px]" />
+      </div>
+
+      {/* Tasks Table Skeleton */}
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    </div>
+  );
+}
+
+// Main page component with Suspense boundary
+export default function TasksPage() {
+  return (
+    <Suspense fallback={<TasksPageSkeleton />}>
+      <TasksContent />
+    </Suspense>
+  );
+}

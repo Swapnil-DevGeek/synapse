@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Task from '@/models/Task';
 import Note from '@/models/Note';
 
-export async function GET(request: NextRequest) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- request object not used in this handler
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
 
     const enhancedHighPriorityTasks = highPriorityTasks.map(task => ({
       ...task,
-      completedSubtasks: task.subtasks?.filter(st => st.isCompleted).length || 0,
+      completedSubtasks: task.subtasks?.filter((st: { isCompleted: boolean; }) => st.isCompleted).length || 0,
       totalSubtasks: task.subtasks?.length || 0,
       daysUntilDue: task.dueDate ? getDaysUntilDate(task.dueDate) : null,
       isOverdue: task.dueDate ? new Date(task.dueDate) < now : false
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     const enhancedApproachingDeadlines = approachingDeadlines.map(task => ({
       ...task,
-      completedSubtasks: task.subtasks?.filter(st => st.isCompleted).length || 0,
+      completedSubtasks: task.subtasks?.filter((st: { isCompleted: boolean; }) => st.isCompleted).length || 0,
       totalSubtasks: task.subtasks?.length || 0,
       daysUntilDue: getDaysUntilDate(task.dueDate),
       isUrgent: getDaysUntilDate(task.dueDate) <= 2

@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Note from '@/models/Note';
+import { GraphNode, GraphEdge } from '@/types/graph';
+import mongoose from 'mongoose';
+
+interface NoteFilter {
+  userId: string;
+  folder?: string | null;
+}
+
+interface RawNote {
+  _id: mongoose.Types.ObjectId;
+  title: string;
+  content?: string;
+  folder: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,7 +37,7 @@ export async function GET(request: NextRequest) {
     const folder = searchParams.get('folder');
 
     // Build filter query
-    const filter: any = { userId: session.user.id };
+    const filter: NoteFilter = { userId: session.user.id };
     
     if (folder && folder !== 'all') {
       if (folder === 'root') {
@@ -38,7 +54,7 @@ export async function GET(request: NextRequest) {
       .lean();
 
     // Build nodes and edges
-    const { nodes, edges, stats } = processNotesIntoGraph(notes);
+    const { nodes, edges, stats } = processNotesIntoGraph( notes as unknown as RawNote[] );
 
     return NextResponse.json({
       success: true,
@@ -63,9 +79,9 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to process notes into graph structure
-function processNotesIntoGraph(notes: any[]) {
-  const nodes: any[] = [];
-  const edges: any[] = [];
+function processNotesIntoGraph(notes: RawNote[]) {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
   const noteMap = new Map();
   const connectionCounts = new Map();
 
@@ -127,11 +143,11 @@ function processNotesIntoGraph(notes: any[]) {
       data: {
         label: note.title,
         note: {
-          _id: note._id,
+          _id: note._id.toString(),
           title: note.title,
           folder: note.folder,
-          createdAt: note.createdAt,
-          updatedAt: note.updatedAt,
+          createdAt: note.createdAt.toISOString(),
+          updatedAt: note.updatedAt.toISOString(),
           wordCount: (note.content || '').split(/\s+/).filter(word => word.length > 0).length,
         },
         connections: totalConnections,
@@ -148,7 +164,7 @@ function processNotesIntoGraph(notes: any[]) {
   });
 
   // Calculate graph statistics
-  const stats = calculateGraphStats(nodes, edges);
+  const stats = calculateGraphStats(nodes);
 
   // Position nodes using a simple layout algorithm
   positionNodes(nodes, edges);
@@ -202,7 +218,7 @@ function getNodeColor(connections: number, folder: string | null): string {
 }
 
 // Simple force-directed layout algorithm
-function positionNodes(nodes: any[], edges: any[]) {
+function positionNodes(nodes: GraphNode[], _edges: GraphEdge[]) {
   const centerX = 400;
   const centerY = 300;
   const radius = 200;
@@ -220,7 +236,7 @@ function positionNodes(nodes: any[], edges: any[]) {
     adjacencyList.set(node.id, new Set());
   });
 
-  edges.forEach(edge => {
+  _edges.forEach(edge => {
     adjacencyList.get(edge.source)?.add(edge.target);
     adjacencyList.get(edge.target)?.add(edge.source);
   });
@@ -269,51 +285,51 @@ function positionNodes(nodes: any[], edges: any[]) {
 
 // Get connected component starting from a node
 function getConnectedComponent(startNodeId: string, adjacencyList: Map<string, Set<string>>): string[] {
-  const visited = new Set();
-  const component = [];
+  const component: string[] = [];
+  const visited = new Set<string>();
   const queue = [startNodeId];
+  visited.add(startNodeId);
 
   while (queue.length > 0) {
-    const nodeId = queue.shift()!;
-    if (visited.has(nodeId)) continue;
+    const currentNodeId = queue.shift()!;
+    component.push(currentNodeId);
 
-    visited.add(nodeId);
-    component.push(nodeId);
-
-    const neighbors = adjacencyList.get(nodeId) || new Set();
-    neighbors.forEach(neighborId => {
+    const neighbors = adjacencyList.get(currentNodeId) || [];
+    for (const neighborId of neighbors) {
       if (!visited.has(neighborId)) {
+        visited.add(neighborId);
         queue.push(neighborId);
       }
-    });
+    }
   }
-
   return component;
 }
 
-// Calculate various graph statistics
-function calculateGraphStats(nodes: any[], edges: any[]) {
-  const connectionCounts = nodes.map(node => node.data.connections);
-  const avgConnections = connectionCounts.length > 0 
-    ? connectionCounts.reduce((a, b) => a + b, 0) / connectionCounts.length 
-    : 0;
+// Calculate graph statistics based on the processed nodes
+function calculateGraphStats(nodes: GraphNode[]) {
+  if (nodes.length === 0) {
+    return {
+      avgConnections: 0,
+      maxConnections: 0,
+      isolatedNodes: 0,
+      hubNodes: 0,
+      folderDistribution: {},
+    };
+  }
 
-  const maxConnections = Math.max(...connectionCounts, 0);
-  const isolatedNodes = nodes.filter(node => node.data.connections === 0).length;
-  const hubNodes = nodes.filter(node => node.data.connections >= 3).length;
+  const totalConnections = nodes.reduce((sum, node) => sum + node.data.connections, 0);
+  const folderCounts: { [key: string]: number } = {};
 
-  // Folder distribution
-  const folderCounts = new Map();
   nodes.forEach(node => {
     const folder = node.data.note.folder || 'root';
-    folderCounts.set(folder, (folderCounts.get(folder) || 0) + 1);
+    folderCounts[folder] = (folderCounts[folder] || 0) + 1;
   });
 
   return {
-    avgConnections: Math.round(avgConnections * 100) / 100,
-    maxConnections,
-    isolatedNodes,
-    hubNodes,
-    folderDistribution: Object.fromEntries(folderCounts),
+    avgConnections: totalConnections / nodes.length,
+    maxConnections: Math.max(...nodes.map(node => node.data.connections)),
+    isolatedNodes: nodes.filter(node => node.data.connections === 0).length,
+    hubNodes: nodes.filter(node => node.data.connections >= 5).length,
+    folderDistribution: folderCounts,
   };
 } 

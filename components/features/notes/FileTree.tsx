@@ -8,7 +8,6 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 import {
@@ -24,14 +23,11 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   FileText, 
-  Folder, 
-  FolderOpen, 
-  Plus, 
-  Edit,
-  Trash2,
   FolderPlus,
-  ChevronRight,
-  ChevronDown
+  Folder,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,13 +45,13 @@ interface Note {
 interface FileTreeProps {
   notes: Note[];
   selectedNote: Note | null;
-  selectedFolder?: string | null;
   onNoteSelect: (noteId: string) => void;
-  onFolderSelect?: (folder: string | null) => void;
   onCreateNote: (title: string, folder?: string) => Promise<Note | undefined>;
   onDeleteNote: (noteId: string) => void;
   onMoveNote: (noteId: string, targetFolder: string | null) => Promise<boolean>;
   onRefreshNotes?: () => void;
+  selectedFolder: string | null;
+  onFolderSelect: (folder: string | null) => void;
 }
 
 interface TreeNode {
@@ -127,13 +123,10 @@ const buildFileTree = (notes: Note[]): TreeNode[] => {
     return root.children;
 };
 
-
 export function FileTree({
   notes,
   selectedNote,
-  selectedFolder,
   onNoteSelect,
-  onFolderSelect,
   onCreateNote,
   onDeleteNote,
   onMoveNote,
@@ -147,19 +140,7 @@ export function FileTree({
 
   const fileTree = useMemo(() => buildFileTree(notes), [notes]);
 
-  const toggleFolder = (path: string) => {
-    setExpandedFolders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
-      }
-      return newSet;
-    });
-  };
-
-  const handleCreate = async () => {
+  const handleCreate = useCallback(async () => {
     if (!creatingData || !newName.trim()) {
       setCreatingData(null);
       setNewName('');
@@ -179,9 +160,9 @@ export function FileTree({
     onRefreshNotes?.();
     setCreatingData(null);
     setNewName('');
-  };
+  }, [creatingData, newName, onCreateNote, onRefreshNotes]);
 
-  const handleRename = async () => {
+  const handleRename = useCallback(async () => {
     if (!editingItem || !newName.trim() || newName === editingItem.name) {
         setEditingItem(null);
         setNewName('');
@@ -199,15 +180,15 @@ export function FileTree({
         if (!res.ok) throw new Error(await res.text());
         toast.success('Folder renamed');
         onRefreshNotes?.();
-    } catch (e: any) {
-        toast.error('Failed to rename folder: ' + e.message);
+    } catch (e: unknown) {
+        toast.error('Failed to rename folder: ' + (e as Error).message);
     } finally {
         setEditingItem(null);
         setNewName('');
     }
-  };
+  }, [editingItem, newName, onRefreshNotes]);
 
-  const confirmDelete = async () => {
+  const confirmDelete = useCallback(async () => {
     if (!deleteItem) return;
 
     if (deleteItem.type === 'note') {
@@ -218,15 +199,15 @@ export function FileTree({
         if (!res.ok) throw new Error(await res.text());
         toast.success('Folder deleted');
         onRefreshNotes?.();
-      } catch (e: any) {
-        toast.error('Failed to delete folder: ' + e.message);
+      } catch (e: unknown) {
+        toast.error('Failed to delete folder: ' + (e as Error).message);
       }
     }
     setDeleteItem(null);
-  };
+  }, [deleteItem, onDeleteNote, onRefreshNotes]);
   
-  const handleDragEnd = async (result: DropResult) => {
-    const { draggableId, destination, source } = result;
+  const handleDragEnd = useCallback(async (result: DropResult) => {
+    const { draggableId, destination } = result;
     if (!destination?.droppableId) return;
 
     const targetPath = destination.droppableId === 'root-droppable' ? '' : destination.droppableId;
@@ -249,183 +230,237 @@ export function FileTree({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ draggedPath, targetPath }),
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error);
-          toast.success('Folder moved successfully');
+          if (!res.ok) throw new Error(await res.text());
+          toast.success('Folder moved');
           onRefreshNotes?.();
-      } catch (e: any) {
-          toast.error(`Failed to move folder: ${e.message}`);
+      } catch (e: unknown) {
+          toast.error('Failed to move folder: ' + (e as Error).message);
       }
     }
-  };
+  }, [onMoveNote, onRefreshNotes]);
 
-  const renderItemCreation = (path: string, type: 'note' | 'folder') => (
-    <div style={{ marginLeft: `${(path.split('/').length - (path ? 1: 0)) * 1.25}rem`}} className="p-2 space-y-2">
-        <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreate();
-              if (e.key === 'Escape') setCreatingData(null);
-            }}
-            placeholder={type === 'folder' ? 'New folder name' : 'New note title'}
-            className="h-8 text-sm"
-            autoFocus
-        />
-        <div className="flex gap-2">
-            <Button size="sm" onClick={handleCreate}>Create</Button>
-            <Button size="sm" variant="ghost" onClick={() => setCreatingData(null)}>Cancel</Button>
-        </div>
+  const renderItemCreation = useCallback((path: string, type: 'note' | 'folder') => (
+    <div className="py-1 flex items-center gap-2" style={{ marginLeft: `${(path.split('/').length - 1) * 1.25}rem` }}>
+      <Input
+        autoFocus
+        value={newName}
+        placeholder={type === 'folder' ? 'New folder name' : 'New note title'}
+        onChange={(e) => setNewName(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            if (type === 'folder') {
+              handleRename();
+            } else {
+              handleCreate();
+            }
+          }
+          if (e.key === 'Escape') {
+            setCreatingData(null);
+            setEditingItem(null);
+            setNewName('');
+          }
+        }}
+        className="h-7 text-sm"
+      />
+      <Button 
+        size="sm" 
+        variant="ghost" 
+        className="h-7" 
+        onClick={type === 'folder' ? handleRename : handleCreate}
+      >
+        Save
+      </Button>
     </div>
-  )
+  ), [newName, setNewName, handleRename, handleCreate]);
+
+  const toggleFolder = useCallback((path: string) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(path)) {
+        newSet.delete(path);
+      } else {
+        newSet.add(path);
+      }
+      return newSet;
+    });
+  }, []);
 
   const renderNode = useCallback((node: TreeNode) => {
+    const isEditing = editingItem?.path === node.path;
     const isExpanded = expandedFolders.has(node.path);
+    const isSelected = selectedNote?._id === node.note?._id;
 
-    if (editingItem?.path === node.path && node.type === 'folder') {
-        return (
-            <div style={{ marginLeft: `${node.depth * 1.25}rem`}} className="p-2 space-y-2">
-                <Input
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename();
-                        if (e.key === 'Escape') setEditingItem(null);
-                    }}
-                    className="h-8 text-sm"
-                    autoFocus
-                />
-                <div className="flex gap-2">
-                    <Button size="sm" onClick={handleRename}>Rename</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingItem(null)}>Cancel</Button>
-                </div>
-            </div>
-        )
-    }
-
-    if (node.type === 'folder') {
+    if (isEditing) {
       return (
-        <Draggable key={node.id} draggableId={node.id} index={0}>
-            {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={provided.draggableProps.style}>
-                    <ContextMenu>
-                        <ContextMenuTrigger>
-                            <div className={`flex items-center gap-1 p-2 text-sm cursor-pointer rounded-md transition-colors hover:bg-muted/50 ${snapshot.isDragging ? 'bg-accent' : ''}`}>
-                                <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-transparent" onClick={() => toggleFolder(node.path)}>
-                                    {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                </Button>
-                                {isExpanded ? <FolderOpen className="h-4 w-4" /> : <Folder className="h-4 w-4" />}
-                                <span className="truncate flex-1" onClick={() => toggleFolder(node.path)}>{node.name}</span>
-                                <span className="text-xs text-muted-foreground bg-muted-foreground/10 px-1.5 py-0.5 rounded-full">{node.children.length}</span>
-                            </div>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                            <ContextMenuItem onClick={() => { setCreatingData({ type: 'note', path: node.path }); setNewName('Untitled'); }}>
-                                <Plus className="h-4 w-4 mr-2" /> New Note
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => { setCreatingData({ type: 'folder', path: node.path }); setNewName('New Folder'); }}>
-                                <FolderPlus className="h-4 w-4 mr-2" /> New Folder
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => { setEditingItem({ path: node.path, name: node.name }); setNewName(node.name) }}>
-                                <Edit className="h-4 w-4 mr-2" /> Rename
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setDeleteItem({ type: 'folder', id: node.id, name: node.name, path: node.path })} className="text-red-600">
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </ContextMenuItem>
-                        </ContextMenuContent>
-                    </ContextMenu>
-                    {isExpanded && (
-                        <Droppable droppableId={node.path} type="folder">
-                            {(provided, snapshot) => (
-                                <div ref={provided.innerRef} {...provided.droppableProps} className={`space-y-1 min-h-[8px] rounded-md transition-colors ${snapshot.isDraggingOver ? 'bg-accent/50' : ''}`}>
-                                    {node.children.map(child => renderNode(child))}
-                                    {provided.placeholder}
-                                    {creatingData?.path === node.path && renderItemCreation(node.path, creatingData.type)}
-                                </div>
-                            )}
-                        </Droppable>
-                    )}
-                </div>
-            )}
-        </Draggable>
+        <div key={node.id} className="py-1">
+          {renderItemCreation(node.path, 'folder')}
+        </div>
       );
     }
 
-    if (node.type === 'note' && node.note) {
-      const note = node.note;
-      return (
-        <Draggable key={node.id} draggableId={node.id} index={0}>
-            {(provided, snapshot) => (
-                <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} style={{ ...provided.draggableProps.style, marginLeft: `${node.depth * 1.25}rem` }}>
-                    <ContextMenu>
-                        <ContextMenuTrigger>
-                            <div className={`flex items-center gap-2 p-2 text-sm cursor-pointer rounded-md transition-colors ${selectedNote?._id === note._id ? 'bg-primary text-primary-foreground' : snapshot.isDragging ? 'bg-accent' : 'hover:bg-muted'}`}
-                                onClick={() => onNoteSelect(note._id)}>
-                                <FileText className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate flex-1">{note.title}</span>
-                            </div>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                            <ContextMenuItem onClick={() => setDeleteItem({ type: 'note', id: note._id, name: note.title, path: node.path })} className="text-red-600">
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </ContextMenuItem>
-                        </ContextMenuContent>
-                    </ContextMenu>
+    return (
+      <Draggable key={node.id} draggableId={node.id} index={node.depth}>
+        {(provided) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            style={{ 
+              ...provided.draggableProps.style, 
+              marginLeft: `${node.depth * 1.25}rem` 
+            }}
+          >
+            <ContextMenu>
+              <ContextMenuTrigger>
+                <div 
+                  className={`flex items-center gap-1 px-2 py-1 rounded cursor-pointer hover:bg-accent ${
+                    isSelected ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => {
+                    if (node.type === 'folder') {
+                      toggleFolder(node.path);
+                    } else if (node.note) {
+                      onNoteSelect(node.note._id);
+                    }
+                  }}
+                >
+                  {node.type === 'folder' && (
+                    <>
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      {isExpanded ? (
+                        <FolderOpen className="h-4 w-4" />
+                      ) : (
+                        <Folder className="h-4 w-4" />
+                      )}
+                    </>
+                  )}
+                  {node.type === 'note' && (
+                    <FileText className="h-4 w-4 ml-5" />
+                  )}
+                  <span className="text-sm truncate">{node.name}</span>
                 </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                {node.type === 'folder' && (
+                  <>
+                    <ContextMenuItem onClick={() => setCreatingData({ type: 'note', path: node.path })}>
+                      New Note
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => setCreatingData({ type: 'folder', path: node.path })}>
+                      New Folder
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => {
+                      setEditingItem({ path: node.path, name: node.name });
+                      setNewName(node.name);
+                    }}>
+                      Rename
+                    </ContextMenuItem>
+                  </>
+                )}
+                <ContextMenuItem 
+                  onClick={() => setDeleteItem({ 
+                    type: node.type, 
+                    id: node.note?._id || node.path, 
+                    name: node.name, 
+                    path: node.path 
+                  })}
+                  className="text-destructive"
+                >
+                  Delete
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          </div>
+        )}
+      </Draggable>
+    );
+  }, [expandedFolders, selectedNote, editingItem, onNoteSelect, toggleFolder, renderItemCreation]);
+
+  const renderTree = useCallback((nodes: TreeNode[]) => (
+    nodes.map(node => (
+      <div key={node.id}>
+        {renderNode(node)}
+        {creatingData?.path === node.path && (
+          <div className="mt-1">
+            {renderItemCreation(node.path, creatingData.type)}
+          </div>
+        )}
+        {node.type === 'folder' && expandedFolders.has(node.path) && (
+          <Droppable droppableId={node.path} type="ITEM">
+            {(provided) => (
+              <div 
+                ref={provided.innerRef} 
+                {...provided.droppableProps} 
+                className="pl-4 border-l border-border/50 ml-2"
+              >
+                {renderTree(node.children)}
+                {provided.placeholder}
+              </div>
             )}
-        </Draggable>
-      );
-    }
-    return null;
-  }, [expandedFolders, creatingData, editingItem, newName, selectedNote, onNoteSelect, onRefreshNotes]);
+          </Droppable>
+        )}
+      </div>
+    ))
+  ), [renderNode, creatingData, renderItemCreation, expandedFolders]);
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="h-full flex flex-col border-r bg-background">
-        <div className="p-4 border-b">
-            <div className="flex items-center justify-between">
-                <h2 className="text-sm font-medium">Files</h2>
-                <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => { setCreatingData({ type: 'note', path: '' }); setNewName('Untitled'); }} className="h-8 w-8 p-0" title="New Note">
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setCreatingData({ type: 'folder', path: '' }); setNewName('New Folder'); }} className="h-8 w-8 p-0" title="New Folder">
-                        <FolderPlus className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
-            {creatingData?.path === '' && renderItemCreation('', creatingData.type)}
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 p-2 flex items-center justify-between border-b">
+        <h2 className="text-sm font-semibold px-2">File Explorer</h2>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setCreatingData({ type: 'note', path: '' })}>
+            <FileText className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCreatingData({ type: 'folder', path: '' })}>
+            <FolderPlus className="h-3.5 w-3.5" />
+          </Button>
         </div>
-
-        <div className="flex-1 overflow-hidden">
-            <ScrollArea className="h-full">
-                <Droppable droppableId="root-droppable" type="folder">
-                    {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps} className={`p-2 space-y-1 min-h-full ${snapshot.isDraggingOver ? 'bg-accent' : ''}`}>
-                            {fileTree.map(node => renderNode(node))}
-                            {provided.placeholder}
-                        </div>
-                    )}
-                </Droppable>
-            </ScrollArea>
-        </div>
-
-        <AlertDialog open={!!deleteItem} onOpenChange={() => setDeleteItem(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete {deleteItem?.type}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    Are you sure you want to delete "{deleteItem?.name}"?
-                    {deleteItem?.type === 'folder' && ' This will also delete all its content.'} This action is irreversible.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Delete</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
       </div>
-    </DragDropContext>
+      
+      {/* File Tree */}
+      <ScrollArea className="flex-1">
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <Droppable droppableId="root-droppable" type="ITEM">
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps} className="p-1">
+                {renderTree(fileTree)}
+                {provided.placeholder}
+                {creatingData && !creatingData.path && (
+                  <div className="mt-1">
+                    {renderItemCreation('', creatingData.type)}
+                  </div>
+                )}
+              </div>
+            )}
+          </Droppable>
+        </DragDropContext>
+      </ScrollArea>
+      
+      {/* Delete Confirmation */}
+      {deleteItem && (
+        <AlertDialog open onOpenChange={() => setDeleteItem(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{`Are you sure you want to delete "${deleteItem.name}"?`}</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the {deleteItem.type}
+                {deleteItem.type === 'folder' && ' and all its contents'}.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
   );
-} 
+}

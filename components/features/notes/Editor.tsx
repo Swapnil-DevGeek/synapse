@@ -55,13 +55,12 @@ interface EditorProps {
   notes: Note[];
   onUpdateNote: (noteId: string, updates: Partial<Note>) => void;
   onOpenAIChat: () => void;
-  onSummarizeNote: () => void;
   onNoteSelect?: (noteId: string) => void;
 }
 
-export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onSummarizeNote, onNoteSelect }: EditorProps) {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onNoteSelect }: EditorProps) {
+  const [title, setTitle] = useState(note?.title || '');
+  const [content, setContent] = useState(note?.content || '');
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -127,7 +126,7 @@ export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onSummarizeNot
         multicolor: true,
       }),
     ],
-    content: '',
+    content: note?.content || '',
           editorProps: {
         attributes: {
           class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[500px] transition-colors duration-200',
@@ -226,32 +225,46 @@ export function Editor({ note, notes, onUpdateNote, onOpenAIChat, onSummarizeNot
         }
       });
     },
-  }, [note, notes]);
+  }, [note, notes, onNoteSelect, getCurrentNoteId, handleImagePaste]);
+
+  // Initialize editor with note content when editor is first created
+  useEffect(() => {
+    if (editor && note && !editor.storage.noteId) {
+      // First time initialization
+      editor.storage.noteId = note._id;
+      setTitle(note.title);
+      setContent(note.content || '');
+      editor.commands.setContent(note.content || '', false);
+    }
+  }, [editor, note]);
 
   // Update editor content when note changes
   useEffect(() => {
-    if (editor) {
-      if (note) {
-        // If the editor's content doesn't match the new note's content, update it
-        if (editor.getHTML() !== note.content) {
-          isUpdatingFromPropRef.current = true;
-          setTitle(note.title);
-          setContent(note.content || '');
-          editor.commands.setContent(note.content || '', false); // `false` prevents this from triggering an `onUpdate`
-          setTimeout(() => {
-            isUpdatingFromPropRef.current = false;
-          }, 50);
-        }
-      } else {
-        // Clear editor if no note is selected
+    if (editor && note) {
+      // Only update if we're switching to a completely different note
+      const isDifferentNote = note._id !== editor.storage.noteId;
+      
+      if (isDifferentNote) {
         isUpdatingFromPropRef.current = true;
-        setTitle('');
-        setContent('');
-        editor.commands.clearContent();
+        editor.storage.noteId = note._id;
+        setTitle(note.title);
+        setContent(note.content || '');
+        editor.commands.setContent(note.content || '', false);
+        
         setTimeout(() => {
           isUpdatingFromPropRef.current = false;
-        }, 50);
+        }, 100);
       }
+    } else if (editor && !note) {
+      // Clear editor if no note is selected
+      isUpdatingFromPropRef.current = true;
+      setTitle('');
+      setContent('');
+      editor.commands.clearContent();
+      editor.storage.noteId = null;
+      setTimeout(() => {
+        isUpdatingFromPropRef.current = false;
+      }, 100);
     }
   }, [note, editor]);
 

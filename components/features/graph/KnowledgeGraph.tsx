@@ -1,22 +1,20 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Node,
-  Edge,
   addEdge,
   useNodesState,
   useEdgesState,
   Controls,
   MiniMap,
   Background,
-  OnNodesChange,
-  OnEdgesChange,
   OnConnect,
   NodeTypes,
   Connection,
   BackgroundVariant,
   useReactFlow,
+  Edge,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -44,14 +42,13 @@ export function KnowledgeGraph({
 }: KnowledgeGraphProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<GraphNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<GraphEdge>([]);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const { fitView, zoomTo } = useReactFlow();
 
   // Update nodes and edges when graphData changes
   useEffect(() => {
     if (graphData?.nodes && graphData?.edges) {
-      setNodes(graphData.nodes);
-      setEdges(graphData.edges);
+      setNodes(graphData.nodes as unknown as Node<GraphNode, string | undefined>[]);
+      setEdges(graphData.edges as unknown as Edge<GraphEdge>[]);
       
       // Fit view after a small delay to ensure nodes are rendered
       setTimeout(() => {
@@ -96,8 +93,6 @@ export function KnowledgeGraph({
   }, [onNodeSelect]);
 
   const onNodeMouseEnter = useCallback((event: React.MouseEvent, node: Node) => {
-    setHoveredNodeId(node.id);
-    
     // Highlight connected edges
     setEdges((eds) =>
       eds.map((edge) => ({
@@ -113,8 +108,6 @@ export function KnowledgeGraph({
   }, [setEdges]);
 
   const onNodeMouseLeave = useCallback(() => {
-    setHoveredNodeId(null);
-    
     // Reset edge styles
     setEdges((eds) =>
       eds.map((edge) => ({
@@ -133,9 +126,6 @@ export function KnowledgeGraph({
   const focusNode = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (node) {
-      const x = node.position.x + (node.style?.width || 0) / 2;
-      const y = node.position.y + (node.style?.height || 0) / 2;
-      
       // Center the view on this node
       const zoom = 1.5;
       zoomTo(zoom);

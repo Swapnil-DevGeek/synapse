@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Note from '@/models/Note';
 
@@ -45,7 +45,7 @@ async function updateBacklinks(noteId: string, userId: string, oldContent: strin
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { noteId: string } }
+  { params }: { params: Promise<{ noteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -60,7 +60,7 @@ export async function GET(
     await dbConnect();
 
     const note = await Note.findOne({
-      _id: params.noteId,
+      _id: (await params).noteId,
       userId: session.user.id
     }).populate('backlinks', 'title _id');
 
@@ -86,7 +86,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { noteId: string } }
+  { params }: { params: Promise<{ noteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -102,7 +102,7 @@ export async function PUT(
 
     // Find the existing note
     const existingNote = await Note.findOne({
-      _id: params.noteId,
+      _id: (await params).noteId,
       userId: session.user.id
     });
 
@@ -122,10 +122,10 @@ export async function PUT(
 
     // Update the note
     const updatedNote = await Note.findByIdAndUpdate(
-      params.noteId,
+      (await params).noteId,
       {
         ...(title !== undefined && { title: title.trim() }),
-        ...(content !== undefined && { content: content.trim() }),
+        ...(content !== undefined && { content: content }), // Don't trim content as it might contain meaningful whitespace
         ...(folder !== undefined && { folder: folder?.trim() || null }),
         updatedAt: new Date()
       },
@@ -134,7 +134,7 @@ export async function PUT(
 
     // Update backlinks if content changed
     if (content !== undefined) {
-      await updateBacklinks(params.noteId, session.user.id, oldContent, newContent);
+      await updateBacklinks((await params).noteId, session.user.id, oldContent, newContent);
     }
 
     return NextResponse.json(
@@ -152,7 +152,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { noteId: string } }
+  { params }: { params: Promise<{ noteId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -168,7 +168,7 @@ export async function DELETE(
 
     // Find and delete the note
     const deletedNote = await Note.findOneAndDelete({
-      _id: params.noteId,
+      _id: (await params).noteId,
       userId: session.user.id
     });
 
@@ -182,7 +182,7 @@ export async function DELETE(
     // Remove this note's ID from all backlinks arrays
     await Note.updateMany(
       { userId: session.user.id },
-      { $pull: { backlinks: params.noteId } }
+      { $pull: { backlinks: (await params).noteId } }
     );
 
     return NextResponse.json(

@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
@@ -17,7 +16,6 @@ import {
   Clock,
   Trash2
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface Conversation {
   _id?: string;
@@ -31,7 +29,7 @@ interface AIChatPanelProps {
   noteTitle: string;
   noteContent: string;
   isVisible: boolean;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
 export function AIChatPanel({ 
@@ -39,7 +37,6 @@ export function AIChatPanel({
   noteTitle, 
   noteContent, 
   isVisible,
-  onClose 
 }: AIChatPanelProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState('');
@@ -50,21 +47,7 @@ export function AIChatPanel({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch conversation history when component mounts or noteId changes
-  useEffect(() => {
-    if (noteId && isVisible) {
-      fetchConversations();
-    }
-  }, [noteId, isVisible]);
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [conversations, streamingAnswer]);
-
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       const response = await fetch(`/api/ai/conversations/${noteId}`);
       if (response.ok) {
@@ -74,7 +57,21 @@ export function AIChatPanel({
     } catch (error) {
       console.error('Error fetching conversations:', error);
     }
-  };
+  }, [noteId]);
+
+  // Fetch conversation history when component mounts or noteId changes
+  useEffect(() => {
+    if (noteId && isVisible) {
+      fetchConversations();
+    }
+  }, [noteId, isVisible, fetchConversations]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [conversations, streamingAnswer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,6 +147,7 @@ export function AIChatPanel({
               }
             } catch (parseError) {
               // Ignore parsing errors for incomplete chunks
+              console.error('Chunk parse error:', parseError);
             }
           }
         }
@@ -216,7 +214,7 @@ export function AIChatPanel({
                 <Bot className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                 <h4 className="font-medium mb-2">Start a conversation</h4>
                 <p className="text-sm text-muted-foreground">
-                  Ask me anything about this note and I'll help you understand it better.
+                  Ask me anything about this note and I&apos;ll help you understand it better.
                 </p>
               </div>
             )}

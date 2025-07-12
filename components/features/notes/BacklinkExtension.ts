@@ -1,6 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
 import { PluginKey } from '@tiptap/pm/state';
-import Suggestion from '@tiptap/suggestion';
+import Suggestion, { SuggestionOptions, SuggestionProps, SuggestionKeyDownProps } from '@tiptap/suggestion';
 
 interface Note {
   _id: string;
@@ -9,9 +9,15 @@ interface Note {
   folder: string | null;
 }
 
+interface SuggestionItem {
+  id: string;
+  label: string;
+  displayLabel: string;
+}
+
 interface BacklinkOptions {
-  HTMLAttributes: Record<string, any>;
-  suggestion: any;
+  HTMLAttributes: Record<string, unknown>;
+  suggestion: Partial<SuggestionOptions>;
 }
 
 export interface BacklinkExtensionProps {
@@ -59,7 +65,7 @@ export const BacklinkExtension = (props: BacklinkExtensionProps) => {
 
             window.getSelection()?.collapseToEnd();
           },
-          allow: ({ state, range }) => {
+          allow: ({ state }) => {
             const $from = state.selection.$from;
             const type = state.schema.nodes[this.name];
             const allow = $from.parent.type.contentMatch.matchType(type);
@@ -95,7 +101,7 @@ export const BacklinkExtension = (props: BacklinkExtensionProps) => {
             let selectedIndex = 0;
 
             return {
-              onStart: (suggestionProps: any) => {
+              onStart: (suggestionProps: SuggestionProps) => {
                 selectedIndex = 0;
                 component = document.createElement('div');
                 component.className = 'backlink-suggestions';
@@ -108,14 +114,17 @@ export const BacklinkExtension = (props: BacklinkExtensionProps) => {
                 const { clientRect } = suggestionProps;
 
                 if (clientRect) {
-                  popup.style.top = `${clientRect().bottom + 5}px`;
-                  popup.style.left = `${clientRect().left}px`;
+                  const rect = clientRect();
+                  if (rect) {
+                    popup.style.top = `${rect.bottom + 5}px`;
+                    popup.style.left = `${rect.left}px`;
+                  }
                 }
 
                 document.body.appendChild(component);
               },
 
-              onUpdate(suggestionProps: any) {
+              onUpdate(suggestionProps: SuggestionProps) {
                 popup.innerHTML = '';
                 
                 if (suggestionProps.items.length === 0) {
@@ -126,7 +135,7 @@ export const BacklinkExtension = (props: BacklinkExtensionProps) => {
                   return;
                 }
 
-                suggestionProps.items.forEach((item: any, index: number) => {
+                suggestionProps.items.forEach((item: SuggestionItem, index: number) => {
                   const button = document.createElement('button');
                   button.className = `w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${
                     index === selectedIndex ? 'bg-accent' : ''
@@ -144,40 +153,59 @@ export const BacklinkExtension = (props: BacklinkExtensionProps) => {
 
                 const { clientRect } = suggestionProps;
                 if (clientRect) {
-                  popup.style.top = `${clientRect().bottom + 5}px`;
-                  popup.style.left = `${clientRect().left}px`;
+                  const rect = clientRect();
+                  if (rect) {
+                    popup.style.top = `${rect.bottom + 5}px`;
+                    popup.style.left = `${rect.left}px`;
+                  }
                 }
               },
 
-              onKeyDown(suggestionProps: any) {
-                if (suggestionProps.event.key === 'Escape') {
+              onKeyDown(keyDownProps: SuggestionKeyDownProps) {
+                if (keyDownProps.event.key === 'Escape') {
                   if (component) {
                     component.remove();
                   }
                   return true;
                 }
 
-                if (!suggestionProps.items || suggestionProps.items.length === 0) {
+                // We need to access the current items from the component state
+                const currentItems = popup.querySelectorAll('button');
+                if (!currentItems || currentItems.length === 0) {
                   return false;
                 }
 
-                if (suggestionProps.event.key === 'ArrowUp') {
-                  selectedIndex = selectedIndex <= 0 ? suggestionProps.items.length - 1 : selectedIndex - 1;
-                  // Re-render to update selection
-                  this.onUpdate(suggestionProps);
+                if (keyDownProps.event.key === 'ArrowUp') {
+                  selectedIndex = selectedIndex <= 0 ? currentItems.length - 1 : selectedIndex - 1;
+                  // Re-render to update selection - we need to trigger an update
+                  // Since we don't have suggestionProps here, we'll update the UI directly
+                  currentItems.forEach((item, index) => {
+                    if (index === selectedIndex) {
+                      item.classList.add('bg-accent');
+                    } else {
+                      item.classList.remove('bg-accent');
+                    }
+                  });
                   return true;
                 }
 
-                if (suggestionProps.event.key === 'ArrowDown') {
-                  selectedIndex = selectedIndex >= suggestionProps.items.length - 1 ? 0 : selectedIndex + 1;
-                  // Re-render to update selection
-                  this.onUpdate(suggestionProps);
+                if (keyDownProps.event.key === 'ArrowDown') {
+                  selectedIndex = selectedIndex >= currentItems.length - 1 ? 0 : selectedIndex + 1;
+                  // Re-render to update selection - update UI directly
+                  currentItems.forEach((item, index) => {
+                    if (index === selectedIndex) {
+                      item.classList.add('bg-accent');
+                    } else {
+                      item.classList.remove('bg-accent');
+                    }
+                  });
                   return true;
                 }
 
-                if (suggestionProps.event.key === 'Enter') {
-                  if (suggestionProps.items[selectedIndex]) {
-                    suggestionProps.command(suggestionProps.items[selectedIndex]);
+                if (keyDownProps.event.key === 'Enter') {
+                  const selectedButton = currentItems[selectedIndex] as HTMLButtonElement;
+                  if (selectedButton) {
+                    selectedButton.click();
                   }
                   return true;
                 }

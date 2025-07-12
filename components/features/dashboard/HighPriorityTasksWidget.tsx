@@ -63,7 +63,7 @@ export function HighPriorityTasksWidget({
           <div className="text-center py-8">
             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3 opacity-50" />
             <p className="text-sm text-muted-foreground mb-3">
-              No high priority tasks! You're on top of things.
+              No high priority tasks! You&apos;re on top of things.
             </p>
             <Button 
               variant="outline" 
@@ -109,7 +109,7 @@ export function HighPriorityTasksWidget({
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
                         <span className={task.isOverdue ? 'text-red-500' : ''}>
-                          {task.daysUntilDue !== null && task.daysUntilDue >= 0 
+                          {task.daysUntilDue !== null && task.daysUntilDue !== undefined && task.daysUntilDue >= 0 
                             ? `${task.daysUntilDue}d left`
                             : `${Math.abs(task.daysUntilDue || 0)}d overdue`
                           }

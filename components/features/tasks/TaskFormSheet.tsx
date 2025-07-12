@@ -39,28 +39,33 @@ import {
   Plus, 
   Calendar as CalendarIcon,
   Loader2,
-  GripVertical
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Validation schema
 const subtaskSchema = z.object({
   title: z.string().min(1, 'Subtask title is required'),
-  isCompleted: z.boolean().default(false),
+  isCompleted: z.boolean(),
 });
 
 const taskSchema = z.object({
   title: z.string().min(1, 'Task title is required'),
   description: z.string().optional(),
-  priority: z.enum(['Low', 'Medium', 'High']).default('Medium'),
-  status: z.enum(['To Do', 'In Progress', 'Done']).default('To Do'),
+  priority: z.enum(['Low', 'Medium', 'High']),
+  status: z.enum(['To Do', 'In Progress', 'Done']),
   dueDate: z.date().optional(),
-  subtasks: z.array(subtaskSchema).default([]),
+  subtasks: z.array(subtaskSchema).optional(),
 });
 
 type TaskFormData = z.infer<typeof taskSchema>;
 
 // Types
+interface Subtask {
+  _id: string;
+  title: string;
+  isCompleted: boolean;
+}
+
 interface Task {
   _id: string;
   title: string;
@@ -68,11 +73,7 @@ interface Task {
   priority: 'Low' | 'Medium' | 'High';
   status: 'To Do' | 'In Progress' | 'Done';
   dueDate?: string;
-  subtasks: Array<{
-    _id: string;
-    title: string;
-    isCompleted: boolean;
-  }>;
+  subtasks: Subtask[];
 }
 
 interface TaskFormSheetProps {
@@ -98,7 +99,7 @@ export function TaskFormSheet({ open, onOpenChange, task, onTaskUpdated }: TaskF
     },
   });
 
-  const { fields, append, remove, move } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: 'subtasks',
   });
@@ -113,7 +114,7 @@ export function TaskFormSheet({ open, onOpenChange, task, onTaskUpdated }: TaskF
           priority: task.priority,
           status: task.status,
           dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-          subtasks: task.subtasks.map(st => ({
+          subtasks: task.subtasks.map((st: Subtask) => ({
             title: st.title,
             isCompleted: st.isCompleted,
           })),
@@ -422,4 +423,4 @@ export function TaskFormSheet({ open, onOpenChange, task, onTaskUpdated }: TaskF
       </SheetContent>
     </Sheet>
   );
-} 
+}

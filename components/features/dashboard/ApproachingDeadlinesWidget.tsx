@@ -63,7 +63,7 @@ export function ApproachingDeadlinesWidget({
           <div className="text-center py-8">
             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3 opacity-50" />
             <p className="text-sm text-muted-foreground mb-3">
-              No upcoming deadlines. You're all caught up!
+              No upcoming deadlines. You&apos;re all caught up!
             </p>
             <Button 
               variant="outline" 

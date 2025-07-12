@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, FileText, Loader2 } from 'lucide-react';
@@ -26,13 +26,7 @@ export function SummaryDisplay({
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isVisible && noteId && noteContent) {
-      generateSummary();
-    }
-  }, [isVisible, noteId, noteContent]);
-
-  const generateSummary = async () => {
+  const generateSummary = useCallback(async () => {
     if (!noteId || !noteContent?.trim()) {
       setError('No content to summarize');
       return;
@@ -105,7 +99,13 @@ export function SummaryDisplay({
       setIsLoading(false);
       setIsStreaming(false);
     }
-  };
+  }, [noteId, noteContent]);
+
+  useEffect(() => {
+    if (isVisible && noteId && noteContent) {
+      generateSummary();
+    }
+  }, [isVisible, noteId, noteContent, generateSummary]);
 
   if (!isVisible) return null;
 

@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import dbConnect from '@/lib/dbConnect';
 import Note from '@/models/Note';
-import { authOptions } from '../../../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
+
+interface AIConversation {
+  question: string;
+  answer: string;
+  timestamp: Date;
+}
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { noteId: string } }
+  { params }: { params: Promise<{ noteId: string }> }
 ) {
   try {
     // Check authentication
@@ -15,7 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { noteId } = params;
+    // Await the params since it's now a Promise
+    const { noteId } = await params;
 
     if (!noteId) {
       return NextResponse.json(
@@ -39,7 +46,7 @@ export async function GET(
 
     // Return conversations, sorted by timestamp ascending (oldest first)
     const sortedConversations = note.aiConversations.sort(
-      (a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      (a: AIConversation, b: AIConversation) => a.timestamp.getTime() - b.timestamp.getTime()
     );
 
     return NextResponse.json({
@@ -54,4 +61,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/dbConnect';
 import Task from '@/models/Task';
+
+interface TaskFilter {
+  userId: string;
+  priority?: string;
+  status?: string;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,7 +80,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
 
     // Build filter query
-    const filter: any = { userId: session.user.id };
+    const filter: TaskFilter = { userId: session.user.id };
     
     if (priority && priority !== 'all') {
       filter.priority = priority;
@@ -85,7 +91,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build sort object
-    const sort: any = {};
+    const sort: { [key: string]: 1 | -1 } = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
     const tasks = await Task.find(filter).sort(sort);

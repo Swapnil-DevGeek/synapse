@@ -15,24 +15,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Brain,
   Search,
-  Filter,
-  Eye,
   EyeOff,
   BarChart3,
   FileText,
   ExternalLink,
-  Calendar,
-  Hash,
   Folder,
   GitBranch,
   TrendingUp,
-  Users,
   Zap,
   Link2,
 } from 'lucide-react';
-import { GraphData, GraphNode, GraphStats } from '@/types/graph';
+import { GraphData, GraphNode } from '@/types/graph';
 
 interface GraphSidebarProps {
   graphData: GraphData;
