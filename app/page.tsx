@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { LandingPage } from '@/components/landing/LandingPage'
 
-export default function Home() {
-  // Redirect to login - middleware will handle authenticated users
-  redirect("/login");
+export default function HomePage() {
+  return <LandingPage />
 }
